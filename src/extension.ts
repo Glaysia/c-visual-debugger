@@ -26,10 +26,16 @@ export function activate(context: vscode.ExtensionContext) {
 						debugState.setStopReason(reason);
 
 						try {
-							const locals = await getLocals(session);
+							const frames = await getStackFrames(session);
+							debugState.setStackFrames(frames);
+
+							const currentFrame = frames[0];
+							if (!currentFrame) return;
+
+							const locals = await getLocals(session, currentFrame.id);
 
 							for (const v of locals) {
-								const state = debugState.updateVariable(v.name, v.value);
+								const state = debugState.updateVariable(currentFrame.key, v.name, v.value);
 
 								if (state.prev === undefined) {
 									out.appendLine(`  ${state.name} = ${state.curr}`);
@@ -37,13 +43,10 @@ export function activate(context: vscode.ExtensionContext) {
 									out.appendLine(`  ${state.name}: ${state.prev} -> ${state.curr}`);
 								}
 							}
-
-							const frames = await getStackFrames(session);
-							debugState.setStackFrames(frames);
-
 						} catch (e: any) {
 							out.appendLine(`getLocals failed: ${e?.message ?? String(e)}`);
 						}
+						
 					}
 				};
 			}
@@ -53,15 +56,10 @@ export function activate(context: vscode.ExtensionContext) {
 
 export function deactivate() {}
 
-async function getLocals(session: vscode.DebugSession): Promise<Array<{ name: string; value: string }>> {
-	const threadsResp = await session.customRequest('threads');
-	const threadId = threadsResp?.threads?.[0]?.id;
-	if (!threadId) throw new Error('No threadId');
-
-	const stackResp = await session.customRequest('stackTrace', {threadId});
-	const frameId = stackResp?.stackFrames?.[0]?.id;
-	if (!frameId) throw new Error('No frameId');
-
+async function getLocals(
+	session: vscode.DebugSession,
+	frameId: number
+): Promise<Array<{ name: string; value: string }>> {
 	const scopesResp = await session.customRequest('scopes', {frameId});
 
 	const localsScope = (scopesResp?.scopes ?? []).find((s: any) =>
@@ -89,8 +87,10 @@ async function getStackFrames(session: vscode.DebugSession): Promise<FrameState[
 
 	return stack.stackFrames.map((f: any) => ({
 		id: f.id,
-		name: f.name,
-		file: f.source?.path,
+		key: {
+			name: f.name,
+			file: f.source?.path
+		},
 		line: f.line
 	}));
 }

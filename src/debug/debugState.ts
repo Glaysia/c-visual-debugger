@@ -1,13 +1,25 @@
-import { DebugState, VariableState, FrameState } from "./types";
+import { DebugState, VariableState, FrameState, FrameKey } from "./types";
+
+function frameKeyToString(key: FrameKey): string{
+    return `${key.name}@${key.file ?? "unknown"}`;
+}
 
 export class DebugStateStore{
     private state: DebugState = {
-        variables: new Map(),
+        frameVariables: new Map(),
         stackFrames: []
     };
 
-    updateVariable(name: string, value: string): VariableState{
-        const prev = this.state.variables.get(name)?.curr;
+    updateVariable(frameKey: FrameKey, name: string, value: string): VariableState{
+        const keyStr = frameKeyToString(frameKey);
+        let frameVars = this.state.frameVariables.get(keyStr);
+
+        if (!frameVars){
+            frameVars = new Map();
+            this.state.frameVariables.set(keyStr, frameVars);
+        }
+
+        const prev = frameVars.get(name)?.curr;
         const changed = prev !== undefined && prev !== value;
 
         const v: VariableState = {
@@ -17,7 +29,7 @@ export class DebugStateStore{
             changed
         };
 
-        this.state.variables.set(name, v);
+        frameVars.set(name, v);
         return v;
     }
 
@@ -34,7 +46,7 @@ export class DebugStateStore{
     }
 
     clearVariables(){
-        this.state.variables.clear();
+        this.state.frameVariables.clear();
     }
 
     reset(){

@@ -5,15 +5,19 @@ export interface VariableState{
     changed: boolean;
 }
 
-export interface FrameState{
-    id: number;
+export interface FrameKey{
     name: string;
     file?: string;
+}
+
+export interface FrameState{
+    id: number;
+    key: FrameKey;
     line: number;
 }
 
 export interface DebugState{
-    variables: Map<string, VariableState>;
+    frameVariables: Map<string, Map<string, VariableState>>;
     stackFrames: FrameState[];
     stopReason?: string;
 }
