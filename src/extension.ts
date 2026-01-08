@@ -6,6 +6,26 @@ let out: vscode.OutputChannel;
 
 let debugState: DebugStateStore;
 
+async function collectStackFrames(session: vscode.DebugSession): Promise<FrameState[]>{
+	const resp = await session.customRequest('stackTrace', {
+		threadId: 1,
+	});
+
+	const frames = resp.stackFrames ?? [];
+	const totalFrames = frames.length;
+
+	return frames.map((f: any, index: number) => ({
+		id: f.id,
+        file: f.source?.path,
+		key: {
+            frameId: f.id,
+			depth: totalFrames - 1 - index,
+			name: f.name,
+        },
+        line: f.line,
+	}));
+}
+
 export function activate(context: vscode.ExtensionContext) {
 	out = vscode.window.createOutputChannel('C Visual Debugger');
 	out.show(true);
@@ -14,43 +34,48 @@ export function activate(context: vscode.ExtensionContext) {
 
 	const trackerDisposable =
 		vscode.debug.registerDebugAdapterTrackerFactory('cppdbg', {
-			createDebugAdapterTracker(session) {
-				out.appendLine(`Tracker attached: ${session.name}`);
+            createDebugAdapterTracker(session) {
+                out.appendLine(`Tracker attached: ${session.name}`);
 
-				return {
-					onDidSendMessage: async (msg: any) => {
-						if (msg?.type !== 'event' || msg?.event !== 'stopped') return;
+                return {
+                    onDidSendMessage: async (msg: any) => {
+                        if (msg?.type !== 'event') return;
+                        if (msg.event !== 'stopped') return;
 
-						const reason = msg.body?.reason ?? 'unknown';
-						out.appendLine(`STOPPED: reason=${reason}`);
-						debugState.setStopReason(reason);
+                        const reason = msg.body?.reason ?? 'unknown';
 
-						try {
-							const frames = await getStackFrames(session);
-							debugState.setStackFrames(frames);
+                        out.appendLine(`STOPPED: reason=${reason}`);
 
-							const currentFrame = frames[0];
-							if (!currentFrame) return;
+                        const frames = await collectStackFrames(session);
+                        debugState.setStackFrames(frames);
 
-							const locals = await getLocals(session, currentFrame.id);
+                        for (const frame of [...frames].reverse()) {
+                            out.appendLine(
+                                `[frame depth=${frame.key.depth} name=${frame.key.name}]`
+                            );
 
-							for (const v of locals) {
-								const state = debugState.updateVariable(currentFrame.key, v.name, v.value);
+                            const locals = await getLocals(session, frame.id);
 
-								if (state.prev === undefined) {
-									out.appendLine(`  ${state.name} = ${state.curr}`);
-								} else if (state.changed) {
-									out.appendLine(`  ${state.name}: ${state.prev} -> ${state.curr}`);
+                            for (const v of locals) {
+                                const state = debugState.updateVariable(
+                                    frame.key,
+                                    v.name,
+                                    v.value
+                                );
+
+                                if (state.prev === undefined) {
+                                    out.appendLine(`  ${state.name} = ${state.curr}`);
+                                } else if (state.changed) {
+                                    out.appendLine(`  ${state.name}: ${state.prev} -> ${state.curr}`);
+                                } else{
+									out.appendLine(`  ${state.name} = ${state.curr} (unchanged)`);
 								}
-							}
-						} catch (e: any) {
-							out.appendLine(`getLocals failed: ${e?.message ?? String(e)}`);
-						}
-						
-					}
-				};
-			}
-		});
+                            }
+                        }
+                    }
+                };
+            }
+        });
 	context.subscriptions.push(trackerDisposable);
 }
 
@@ -75,22 +100,4 @@ async function getLocals(
 	return vars
 		.filter((v: any) => typeof v?.name === 'string')
 		.map((v: any) => ({name: String(v.name), value: String(v.value ?? '')}));
-}
-
-async function getStackFrames(session: vscode.DebugSession): Promise<FrameState[]>{
-	const threads = await session.customRequest('threads');
-	const threadId = threads.threads[0]?.id;
-
-	if (!threadId) return [];
-
-	const stack = await session.customRequest('stackTrace', {threadId});
-
-	return stack.stackFrames.map((f: any) => ({
-		id: f.id,
-		key: {
-			name: f.name,
-			file: f.source?.path
-		},
-		line: f.line
-	}));
 }

@@ -6,12 +6,14 @@ export interface VariableState{
 }
 
 export interface FrameKey{
+    frameId: number;
+    depth: number;
     name: string;
-    file?: string;
 }
 
 export interface FrameState{
     id: number;
+    file?: string;
     key: FrameKey;
     line: number;
 }
