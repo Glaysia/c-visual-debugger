@@ -37,6 +37,9 @@ export class DebugStateStore{
         const currentKeys = new Set(frames.map(f => frameKeyToString(f.key)));
         
         for (const storedKey of this.state.frameVariables.keys()) {
+            if (storedKey === "-1-WATCH"){
+                continue;
+            }
             if (!currentKeys.has(storedKey)) {
                 this.state.frameVariables.delete(storedKey);
             }

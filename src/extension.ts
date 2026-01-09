@@ -7,6 +7,9 @@ let out: vscode.OutputChannel;
 
 let debugState: DebugStateStore;
 
+// add value for testing (requires modification)
+let watchList: string[] = ["test"];
+
 async function collectStackFrames(session: vscode.DebugSession): Promise<FrameState[]>{
 	const resp = await session.customRequest('stackTrace', {
 		threadId: 1,
@@ -63,6 +66,36 @@ export function activate(context: vscode.ExtensionContext) {
 
                         const frames = await collectStackFrames(session);
                         debugState.setStackFrames(frames);
+
+						if (frames.length > 0) {
+							const topFrameId = frames[0].id;
+							
+							out.appendLine(`[watches]`);
+							for (const expr of watchList) {
+								try {
+									const evalResp = await session.customRequest('evaluate', {
+										expression: expr,
+										frameId: topFrameId,
+										context: 'watch'
+									});
+
+									if (evalResp?.result) {
+										const watchKey = { frameId: -1, depth: -1, name: 'WATCH' };
+										const state = debugState.updateVariable(watchKey, expr, evalResp.result); //
+
+										if (state.prev === undefined) {
+											out.appendLine(`  ${expr}: ${state.curr}`);
+										} else if (state.changed) {
+											out.appendLine(`  ${expr}: ${state.prev} -> ${state.curr}`);
+										} else {
+											out.appendLine(`  ${expr}: ${state.curr} (unchanged)`);
+										}
+									}
+								} catch (e) {
+									
+								}
+							}
+						}
 
                         for (const frame of [...frames].reverse()) {
                             out.appendLine(
