@@ -263,6 +263,29 @@ export class DebugViewProvider implements vscode.WebviewViewProvider {
 		const varsBody = document.getElementById('varsBody');
 		const emptyVars = document.getElementById('emptyVars');
 
+		function postWatchAdd(expr) {
+			const trimmed = expr.trim();
+			if (!trimmed) return;
+			vscode.postMessage({ type: 'watch:add', expr: trimmed });
+		}
+
+		function postWatchUpdate(prevExpr, nextExpr) {
+			const trimmedPrev = prevExpr.trim();
+			const trimmedNext = nextExpr.trim();
+			if (!trimmedPrev || !trimmedNext) return;
+			vscode.postMessage({
+				type: 'watch:update',
+				prevExpr: trimmedPrev,
+				nextExpr: trimmedNext
+			});
+		}
+
+		function postWatchRemove(expr) {
+			const trimmed = expr.trim();
+			if (!trimmed) return;
+			vscode.postMessage({ type: 'watch:remove', expr: trimmed });
+		}
+
 		function basename(p) {
 			if (!p) return 'unknown';
 			const parts = p.split(/[/\\\\]/);
