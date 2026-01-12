@@ -187,6 +187,42 @@ export class DebugViewProvider implements vscode.WebviewViewProvider {
 			overflow: auto;
 		}
 
+		.watch {
+			display: grid;
+			gap: 8px;
+			padding: 8px 10px;
+			border: 1px solid var(--vscode-sideBar-border, rgba(255, 255, 255, 0.08));
+			border-radius: 6px;
+		}
+
+		.watch-title {
+			font-weight: 600;
+		}
+
+		.watch-controls {
+			display: grid;
+			grid-template-columns: 1fr auto;
+			gap: var(--gap);
+			align-items: center;
+		}
+
+		.watch-controls input {
+			background: var(--vscode-input-background);
+			color: var(--vscode-input-foreground);
+			border: 1px solid var(--vscode-input-border, transparent);
+			border-radius: 4px;
+			padding: 6px 8px;
+			min-width: 0;
+		}
+
+		.watch-list {
+			list-style: none;
+			padding: 0;
+			margin: 0;
+			display: grid;
+			gap: 4px;
+		}
+
 		table {
 			width: 100%;
 			border-collapse: collapse;
@@ -236,6 +272,16 @@ export class DebugViewProvider implements vscode.WebviewViewProvider {
 		</div>
 
 		<main class="main">
+			<section class="watch" aria-label="Watch expressions">
+				<div class="watch-title">Watch</div>
+				<div class="watch-controls">
+					<input id="watchInput" type="text" placeholder="Add watch expression" />
+					<button id="watchAddBtn" type="button">Add</button>
+				</div>
+				<ul id="watchList" class="watch-list"></ul>
+				<div id="watchEmpty" class="empty">No watch expressions.</div>
+			</section>
+
 			<table aria-label="Local variables">
 				<thead>
 					<tr>
